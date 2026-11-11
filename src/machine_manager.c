@@ -5,7 +5,7 @@
 
 
 void afficher_machine(int id) {
-    FILE *file = fopen("../data/machines.txt", "r");
+    FILE *file = fopen("data/machines.txt", "r");
     if (file == NULL) {
         printf("Error opening file\n");
         return;
@@ -38,7 +38,7 @@ void afficher_machine(int id) {
 }
 
 void ajouter_machine(machine m){
-    FILE *file = fopen("../data/machines.txt", "a");
+    FILE *file = fopen("data/machines.txt", "a");
     if (file == NULL) {
         printf("Error opening file\n");
         return;
@@ -49,7 +49,7 @@ void ajouter_machine(machine m){
 
 void modifier_machine(machine m) {
 
-    FILE *file = fopen("../data/machines.txt", "r");
+    FILE *file = fopen("data/machines.txt", "r");
     FILE *temp_file = fopen("../data/temp.txt", "w");
 
     if (file == NULL || temp_file == NULL) {
@@ -84,18 +84,18 @@ void modifier_machine(machine m) {
     fclose(file);
     fclose(temp_file);
 
-    if (remove("../data/machines.txt") != 0) {
+    if (remove("data/machines.txt") != 0) {
         perror("remove");
         remove("../data/temp.txt");
         return;
     }
 
-    if (rename("../data/temp.txt", "../data/machines.txt") != 0) {
+    if (rename("../data/temp.txt", "data/machines.txt") != 0) {
         perror("rename");
     }
 }
 void supprimer_machine(int id_supprimer){
-    FILE *file = fopen("../data/machines.txt", "r");
+    FILE *file = fopen("data/machines.txt", "r");
     FILE *temp_file = fopen("../data/temp.txt", "w");
     if (file == NULL || temp_file == NULL) {
         perror("fopen");
@@ -116,19 +116,19 @@ void supprimer_machine(int id_supprimer){
     }
     fclose(file);
     fclose(temp_file);
-    if (remove("../data/machines.txt") != 0) {
+    if (remove("data/machines.txt") != 0) {
         perror("remove");
         remove("../data/temp.txt");
         return;
     }
 
-    if (rename("../data/temp.txt", "../data/machines.txt") != 0) {
+    if (rename("../data/temp.txt", "data/machines.txt") != 0) {
         perror("rename");
     }
 }
 
 void lister_machines(){
-    FILE *file = fopen("../data/machines.txt","r");
+    FILE *file = fopen("data/machines.txt","r");
     if(file == NULL){
         printf("Error overture file");
         return ;
@@ -138,8 +138,9 @@ void lister_machines(){
         int id  , cpu_cores ;
         double Ram;
         char nom[50] ;
-        MachineStatus status ;
-        sscanf(line ,"%d %49s %d %lf %d\t",&id , nom , &cpu_cores , &Ram ,&status);
+        int status_value ;
+        sscanf(line ,"%d %49s %d %lf %d\t",&id , nom , &cpu_cores , &Ram ,&status_value);
+        MachineStatus status = (MachineStatus)status_value;
         printf("Machine ID: %d\t", id);
         printf("Machine Name: %s\t", nom);
         printf("CPU Cores: %d\t", cpu_cores);

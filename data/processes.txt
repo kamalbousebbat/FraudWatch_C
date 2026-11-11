@@ -1,0 +1,9 @@
+1 Chrome 0 15 2 2.5 1
+2 VSCode 2 10 1 1.5 2
+3 Python 1 20 3 4.0 1
+4 Database 3 12 2 3.0 3
+5 Antivirus 0 8 4 1.0 2
+6 TaskFlow 5 25 1 2.0 1
+7 Backup 4 18 2 3.5 3
+8 Compiler 6 15 3 2.0 2
+
