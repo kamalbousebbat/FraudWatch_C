@@ -1,152 +1,243 @@
 #include "../include/machine_manager.h"
+#include "../include/process_manager.h"
+
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 
+#define FICHIER_TEMP_MACHINES "data/machines.tmp"
 
-void afficher_machine(int id) {
-    FILE *file = fopen("data/machines.txt", "r");
-    if (file == NULL) {
-        printf("Error opening file\n");
-        return;
-    }
-    char line[256];
-    while(fgets(line,sizeof(line),file) != NULL){
-        char *mot ;
-        mot = strtok(line , " \n");
-        if(mot!=NULL){
-            int id_machine = atoi(mot);
-            if (id_machine == id){
-                printf("Machine ID: %d\n", id);
-                mot = strtok(NULL, " \n");
-                printf("Machine Name: %s\n", mot);
-                mot = strtok(NULL, " \n");
-                printf("CPU Cores: %d\n", atoi(mot));
-                mot = strtok(NULL, " \n");
-                printf("RAM: %.2f\n", atof(mot));
-                mot = strtok(NULL, " \n");
-                if(atoi(mot) == AVAILABLE)
-                    mot = "AVAILABLE";
-                else
-                    mot = "UNAVAILABLE";
-                printf("Status: %s\n", mot);
-                break;
-            }
-        }
-    }
-    fclose(file);
+static const char *obtenir_statut_machine(MachineStatus status)
+{
+    return status == AVAILABLE ? "DISPONIBLE" : "INDISPONIBLE";
 }
 
-void ajouter_machine(machine m){
-    FILE *file = fopen("data/machines.txt", "a");
-    if (file == NULL) {
-        printf("Error opening file\n");
-        return;
-    }
-    fprintf(file, "%d %s %d %.2f %d\n", m.id, m.name, m.cpu_cores, m.Ram, m.status);
-    fclose(file);
+static int machine_est_valide(const machine *machine_a_verifier)
+{
+    return machine_a_verifier->id > 0 &&
+           machine_a_verifier->cpu_cores > 0 &&
+           machine_a_verifier->Ram > 0 &&
+           (machine_a_verifier->status == AVAILABLE ||
+            machine_a_verifier->status == UNAVAILABLE);
 }
 
-void modifier_machine(machine m) {
+static int lire_machine_ligne(const char *ligne, machine *machine_lue)
+{
+    int statut;
+    int champs_lus;
 
-    FILE *file = fopen("data/machines.txt", "r");
-    FILE *temp_file = fopen("../data/temp.txt", "w");
+    champs_lus = sscanf(ligne, "%d %49s %d %lf %d", &machine_lue->id,
+                         machine_lue->name, &machine_lue->cpu_cores,
+                         &machine_lue->Ram, &statut);
 
-    if (file == NULL || temp_file == NULL) {
-        perror("fopen");
-
-        if (file) fclose(file);
-        if (temp_file) fclose(temp_file);
-
-        remove("../data/temp.txt");
-        return;
+    if (champs_lus != 5 || (statut != AVAILABLE && statut != UNAVAILABLE)) {
+        return 0;
     }
 
-    char line[256];
-    int id;
-
-    while (fgets(line, sizeof(line), file) != NULL) {
-
-        if (sscanf(line, "%d", &id) != 1) {
-            fputs(line, temp_file);
-            continue;
-        }
-
-        if (id == m.id) {
-            fprintf(temp_file, "%d %s %d %.2f %d\n",
-                    m.id, m.name, m.cpu_cores, m.Ram, m.status);
-        }
-        else {
-            fputs(line, temp_file);
-        }
-    }
-
-    fclose(file);
-    fclose(temp_file);
-
-    if (remove("data/machines.txt") != 0) {
-        perror("remove");
-        remove("../data/temp.txt");
-        return;
-    }
-
-    if (rename("../data/temp.txt", "data/machines.txt") != 0) {
-        perror("rename");
-    }
-}
-void supprimer_machine(int id_supprimer){
-    FILE *file = fopen("data/machines.txt", "r");
-    FILE *temp_file = fopen("../data/temp.txt", "w");
-    if (file == NULL || temp_file == NULL) {
-        perror("fopen");
-
-        if (file) fclose(file);
-        if (temp_file) fclose(temp_file);
-
-        remove("../data/temp.txt");
-        return;
-    }
-    char line[256];
-    while(fgets(line,sizeof(line),file) != NULL){
-        int id ;
-        sscanf(line, "%d", &id);
-        if (id != id_supprimer){
-            fputs(line, temp_file);
-        }
-    }
-    fclose(file);
-    fclose(temp_file);
-    if (remove("data/machines.txt") != 0) {
-        perror("remove");
-        remove("../data/temp.txt");
-        return;
-    }
-
-    if (rename("../data/temp.txt", "data/machines.txt") != 0) {
-        perror("rename");
-    }
+    machine_lue->status = (MachineStatus)statut;
+    return 1;
 }
 
-void lister_machines(){
-    FILE *file = fopen("data/machines.txt","r");
-    if(file == NULL){
-        printf("Error overture file");
-        return ;
-    }
-    char line[256];
-    while(fgets(line , sizeof(line),file) != NULL){
-        int id  , cpu_cores ;
-        double Ram;
-        char nom[50] ;
-        int status_value ;
-        sscanf(line ,"%d %49s %d %lf %d\t",&id , nom , &cpu_cores , &Ram ,&status_value);
-        MachineStatus status = (MachineStatus)status_value;
-        printf("Machine ID: %d\t", id);
-        printf("Machine Name: %s\t", nom);
-        printf("CPU Cores: %d\t", cpu_cores);
-        printf("RAM: %.2f\t", Ram);
-        printf("Status: %d\n", status);
-    }
-    fclose(file);
+static void ecrire_machine(FILE *fichier, const machine *machine_a_ecrire)
+{
+    fprintf(fichier, "%d %s %d %.2f %d\n", machine_a_ecrire->id,
+            machine_a_ecrire->name, machine_a_ecrire->cpu_cores,
+            machine_a_ecrire->Ram, machine_a_ecrire->status);
+}
 
+int machine_existe(int id)
+{
+    FILE *fichier = fopen(CHEMIN_MACHINE_FILE, "r");
+    char ligne[256];
+    machine machine_lue;
+
+    if (fichier == NULL) {
+        return 0;
+    }
+
+    while (fgets(ligne, sizeof(ligne), fichier) != NULL) {
+        if (lire_machine_ligne(ligne, &machine_lue) && machine_lue.id == id) {
+            fclose(fichier);
+            return 1;
+        }
+    }
+
+    fclose(fichier);
+    return 0;
+}
+
+void afficher_machine(int id)
+{
+    FILE *fichier = fopen(CHEMIN_MACHINE_FILE, "r");
+    char ligne[256];
+    machine machine_lue;
+
+    if (fichier == NULL) {
+        perror("Ouverture des machines");
+        return;
+    }
+
+    while (fgets(ligne, sizeof(ligne), fichier) != NULL) {
+        if (lire_machine_ligne(ligne, &machine_lue) && machine_lue.id == id) {
+            printf("\nMachine %d : %s | CPU: %d | RAM: %.2f Go | %s\n",
+                   machine_lue.id, machine_lue.name, machine_lue.cpu_cores,
+                   machine_lue.Ram, obtenir_statut_machine(machine_lue.status));
+            fclose(fichier);
+            return;
+        }
+    }
+
+    fclose(fichier);
+    printf("Machine %d introuvable.\n", id);
+}
+
+void ajouter_machine(machine machine_a_ajouter)
+{
+    FILE *fichier;
+
+    if (!machine_est_valide(&machine_a_ajouter)) {
+        printf("Donnees de machine invalides.\n");
+        return;
+    }
+
+    if (machine_existe(machine_a_ajouter.id)) {
+        printf("Cette machine existe deja.\n");
+        return;
+    }
+
+    fichier = fopen(CHEMIN_MACHINE_FILE, "a");
+    if (fichier == NULL) {
+        perror("Ouverture des machines");
+        return;
+    }
+
+    ecrire_machine(fichier, &machine_a_ajouter);
+    fclose(fichier);
+    printf("Machine ajoutee.\n");
+}
+
+void modifier_machine(machine machine_a_modifier)
+{
+    FILE *fichier;
+    FILE *fichier_temporaire;
+    char ligne[256];
+    machine machine_lue;
+    int trouve = 0;
+
+    if (!machine_est_valide(&machine_a_modifier)) {
+        printf("Donnees de machine invalides.\n");
+        return;
+    }
+
+    fichier = fopen(CHEMIN_MACHINE_FILE, "r");
+    fichier_temporaire = fopen(FICHIER_TEMP_MACHINES, "w");
+
+    if (fichier == NULL || fichier_temporaire == NULL) {
+        perror("Modification de machine");
+        if (fichier != NULL) fclose(fichier);
+        if (fichier_temporaire != NULL) fclose(fichier_temporaire);
+        return;
+    }
+
+    while (fgets(ligne, sizeof(ligne), fichier) != NULL) {
+        if (lire_machine_ligne(ligne, &machine_lue) &&
+            machine_lue.id == machine_a_modifier.id) {
+            ecrire_machine(fichier_temporaire, &machine_a_modifier);
+            trouve = 1;
+        } else {
+            fputs(ligne, fichier_temporaire);
+        }
+    }
+
+    fclose(fichier);
+    fclose(fichier_temporaire);
+
+    if (!trouve) {
+        remove(FICHIER_TEMP_MACHINES);
+        printf("Machine %d introuvable.\n", machine_a_modifier.id);
+        return;
+    }
+
+    if (remove(CHEMIN_MACHINE_FILE) != 0 ||
+        rename(FICHIER_TEMP_MACHINES, CHEMIN_MACHINE_FILE) != 0) {
+        perror("Sauvegarde de machine");
+        return;
+    }
+
+    printf("Machine modifiee.\n");
+}
+
+void supprimer_machine(int id)
+{
+    FILE *fichier;
+    FILE *fichier_temporaire;
+    char ligne[256];
+    machine machine_lue;
+    int trouve = 0;
+
+    if (machine_a_des_processus(id)) {
+        printf("Suppression impossible : des processus sont associes a cette machine.\n");
+        return;
+    }
+
+    fichier = fopen(CHEMIN_MACHINE_FILE, "r");
+    fichier_temporaire = fopen(FICHIER_TEMP_MACHINES, "w");
+
+    if (fichier == NULL || fichier_temporaire == NULL) {
+        perror("Suppression de machine");
+        if (fichier != NULL) fclose(fichier);
+        if (fichier_temporaire != NULL) fclose(fichier_temporaire);
+        return;
+    }
+
+    while (fgets(ligne, sizeof(ligne), fichier) != NULL) {
+        if (lire_machine_ligne(ligne, &machine_lue) && machine_lue.id == id) {
+            trouve = 1;
+        } else {
+            fputs(ligne, fichier_temporaire);
+        }
+    }
+
+    fclose(fichier);
+    fclose(fichier_temporaire);
+
+    if (!trouve) {
+        remove(FICHIER_TEMP_MACHINES);
+        printf("Machine %d introuvable.\n", id);
+        return;
+    }
+
+    if (remove(CHEMIN_MACHINE_FILE) != 0 ||
+        rename(FICHIER_TEMP_MACHINES, CHEMIN_MACHINE_FILE) != 0) {
+        perror("Sauvegarde de machine");
+        return;
+    }
+
+    printf("Machine supprimee.\n");
+}
+
+void lister_machines(void)
+{
+    FILE *fichier = fopen(CHEMIN_MACHINE_FILE, "r");
+    char ligne[256];
+    machine machine_lue;
+
+    if (fichier == NULL) {
+        perror("Ouverture des machines");
+        return;
+    }
+
+    printf("\n+----+--------------------+------+-----------+----------------+\n");
+    printf("| ID | Nom                | CPU  | RAM (Go)  | Etat           |\n");
+    printf("+----+--------------------+------+-----------+----------------+\n");
+
+    while (fgets(ligne, sizeof(ligne), fichier) != NULL) {
+        if (lire_machine_ligne(ligne, &machine_lue)) {
+            printf("| %-2d | %-18s | %-4d | %-9.2f | %-14s |\n",
+                   machine_lue.id, machine_lue.name, machine_lue.cpu_cores,
+                   machine_lue.Ram, obtenir_statut_machine(machine_lue.status));
+        }
+    }
+
+    printf("+----+--------------------+------+-----------+----------------+\n");
+    fclose(fichier);
 }
