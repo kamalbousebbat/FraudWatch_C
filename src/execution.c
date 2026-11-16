@@ -4,6 +4,9 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+
+#define FORMAT_CHEMIN_HISTORIQUE "data/historique_machine_%d.txt"
 
 static int lire_machine_ligne(const char *ligne, machine *machine_lue)
 {
@@ -62,25 +65,70 @@ static int ajouter_processus_a_liste(processus **liste, size_t *nombre,
     return 1;
 }
 
-static void afficher_entete_table(void)
+static void afficher_entete_table(FILE *sortie)
 {
-    printf("+----+--------------------+---------+-------+-----------+------------+------------+\n");
-    printf("| ID | Processus          | Arrivee | Duree | Debut     | Fin        | Etat       |\n");
-    printf("+----+--------------------+---------+-------+-----------+------------+------------+\n");
+    fprintf(sortie, "+----+--------------------+---------+-------+-----------+------------+------------+\n");
+    fprintf(sortie, "| ID | Processus          | Arrivee | Duree | Debut     | Fin        | Etat       |\n");
+    fprintf(sortie, "+----+--------------------+---------+-------+-----------+------------+------------+\n");
 }
 
-static void afficher_resultat_processus(const processus *processus_lu,
+static void afficher_resultat_processus(FILE *sortie, const processus *processus_lu,
                                         const Execution *execution)
 {
     if (execution->status == COMPLETED) {
-        printf("| %-2d | %-18s | %-7d | %-5d | %-9d | %-10d | TERMINE    |\n",
-               processus_lu->id, processus_lu->name, processus_lu->arrival_time,
-               processus_lu->duration, execution->start_time, execution->end_time);
+        fprintf(sortie, "| %-2d | %-18s | %-7d | %-5d | %-9d | %-10d | TERMINE    |\n",
+                processus_lu->id, processus_lu->name, processus_lu->arrival_time,
+                processus_lu->duration, execution->start_time, execution->end_time);
     } else {
-        printf("| %-2d | %-18s | %-7d | %-5d | %-9s | %-10s | ECHEC      |\n",
-               processus_lu->id, processus_lu->name, processus_lu->arrival_time,
-               processus_lu->duration, "-", "-");
+        fprintf(sortie, "| %-2d | %-18s | %-7d | %-5d | %-9s | %-10s | ECHEC      |\n",
+                processus_lu->id, processus_lu->name, processus_lu->arrival_time,
+                processus_lu->duration, "-", "-");
     }
+}
+
+static void ecrire_entete_historique(FILE *historique, const machine *machine_lue)
+{
+    time_t maintenant = time(NULL);
+    struct tm *date_locale = localtime(&maintenant);
+
+    fprintf(historique, "\n===== EXECUTION");
+    if (date_locale != NULL) {
+        fprintf(historique, " DU %04d-%02d-%02d %02d:%02d:%02d",
+                date_locale->tm_year + 1900, date_locale->tm_mon + 1,
+                date_locale->tm_mday, date_locale->tm_hour,
+                date_locale->tm_min, date_locale->tm_sec);
+    }
+    fprintf(historique, " =====\n");
+    fprintf(historique, "Machine %d - %s (%s, RAM %.2f Go)\n", machine_lue->id,
+            machine_lue->name,
+            machine_lue->status == AVAILABLE ? "DISPONIBLE" : "INDISPONIBLE",
+            machine_lue->Ram);
+}
+
+void afficher_historique_machine(int machine_id)
+{
+    char chemin_historique[128];
+    char ligne[256];
+    FILE *historique;
+
+    if (!machine_existe(machine_id)) {
+        printf("Machine %d introuvable.\n", machine_id);
+        return;
+    }
+
+    snprintf(chemin_historique, sizeof(chemin_historique),
+             FORMAT_CHEMIN_HISTORIQUE, machine_id);
+    historique = fopen(chemin_historique, "r");
+    if (historique == NULL) {
+        printf("Aucun historique d'execution pour la machine %d.\n", machine_id);
+        return;
+    }
+
+    printf("\n===== HISTORIQUE DE LA MACHINE %d =====\n", machine_id);
+    while (fgets(ligne, sizeof(ligne), historique) != NULL) {
+        fputs(ligne, stdout);
+    }
+    fclose(historique);
 }
 
 void execute(void)
@@ -101,6 +149,8 @@ void execute(void)
 
     while (fgets(ligne, sizeof(ligne), fichier_machines) != NULL) {
         processus *liste_processus = NULL;
+        FILE *historique;
+        char chemin_historique[128];
         size_t nombre_processus = 0;
         size_t capacite = 0;
         size_t index;
@@ -108,6 +158,15 @@ void execute(void)
 
         if (!lire_machine_ligne(ligne, &machine_lue)) {
             continue;
+        }
+
+        snprintf(chemin_historique, sizeof(chemin_historique),
+                 FORMAT_CHEMIN_HISTORIQUE, machine_lue.id);
+        historique = fopen(chemin_historique, "a");
+        if (historique == NULL) {
+            perror("Ouverture de l'historique");
+        } else {
+            ecrire_entete_historique(historique, &machine_lue);
         }
 
         rewind(fichier_processus);
@@ -122,6 +181,7 @@ void execute(void)
             if (!ajouter_processus_a_liste(&liste_processus, &nombre_processus,
                                             &capacite, processus_lu)) {
                 free(liste_processus);
+                if (historique != NULL) fclose(historique);
                 fclose(fichier_machines);
                 fclose(fichier_processus);
                 perror("Memoire");
@@ -136,10 +196,16 @@ void execute(void)
                machine_lue.name,
                machine_lue.status == AVAILABLE ? "DISPONIBLE" : "INDISPONIBLE",
                machine_lue.Ram);
-        afficher_entete_table();
+        afficher_entete_table(stdout);
+        if (historique != NULL) {
+            afficher_entete_table(historique);
+        }
 
         if (nombre_processus == 0) {
             printf("|                         Aucun processus associe                          |\n");
+            if (historique != NULL) {
+                fprintf(historique, "|                         Aucun processus associe                          |\n");
+            }
         }
 
         for (index = 0; index < nombre_processus; ++index) {
@@ -158,10 +224,18 @@ void execute(void)
                 temps_courant = execution.end_time;
             }
 
-            afficher_resultat_processus(&liste_processus[index], &execution);
+            afficher_resultat_processus(stdout, &liste_processus[index], &execution);
+            if (historique != NULL) {
+                afficher_resultat_processus(historique, &liste_processus[index],
+                                            &execution);
+            }
         }
 
         printf("+----+--------------------+---------+-------+-----------+------------+------------+\n");
+        if (historique != NULL) {
+            fprintf(historique, "+----+--------------------+---------+-------+-----------+------------+------------+\n");
+            fclose(historique);
+        }
         free(liste_processus);
     }
 

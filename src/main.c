@@ -85,7 +85,8 @@ static int saisir_processus(processus *processus_saisi, int conserver_id)
 static void afficher_menu_machines(void)
 {
     printf("\n--- GESTION DES MACHINES ---\n");
-    printf("1. Lister\n2. Afficher\n3. Ajouter\n4. Modifier\n5. Supprimer\n0. Retour\n");
+    printf("1. Lister\n2. Afficher\n3. Ajouter\n4. Modifier\n5. Supprimer\n");
+    printf("6. Afficher l'historique d'execution\n0. Retour\n");
 }
 
 static void menu_machines(void)
@@ -125,6 +126,13 @@ static void menu_machines(void)
             case 5: {
                 int id;
                 if (lire_entier("ID : ", &id)) supprimer_machine(id);
+                break;
+            }
+            case 6: {
+                int id;
+                if (lire_entier("ID de la machine : ", &id)) {
+                    afficher_historique_machine(id);
+                }
                 break;
             }
             case 0:
