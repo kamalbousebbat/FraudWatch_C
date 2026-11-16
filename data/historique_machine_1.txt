@@ -18,3 +18,14 @@ Machine 1 - Machine_A (DISPONIBLE, RAM 16.00 Go)
 | 3  | Python             | 1       | 20    | 15        | 35         | TERMINE    |
 | 6  | TaskFlow           | 5       | 25    | 35        | 60         | TERMINE    |
 +----+--------------------+---------+-------+-----------+------------+------------+
+
+===== EXECUTION DU 2026-11-16 14:44:30 =====
+Machine 1 - Machine_A (DISPONIBLE, RAM 16.00 Go)
++----+--------------------+---------+-------+-----------+------------+------------+
+| ID | Processus          | Arrivee | Duree | Debut     | Fin        | Etat       |
++----+--------------------+---------+-------+-----------+------------+------------+
+| 1  | Chrome             | 0       | 15    | 0         | 15         | TERMINE    |
+| 3  | Python             | 1       | 20    | 15        | 35         | TERMINE    |
+| 6  | TaskFlow           | 5       | 25    | 35        | 60         | TERMINE    |
++----+--------------------+---------+-------+-----------+------------+------------+
+Statistiques : total=3 | termines=3 | echecs=0 | duree min=15 | max=25 | moyenne=20.00

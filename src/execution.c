@@ -86,6 +86,21 @@ static void afficher_resultat_processus(FILE *sortie, const processus *processus
     }
 }
 
+static void afficher_statistiques(FILE *sortie, size_t total, size_t termines,
+                                  int duree_min, int duree_max, int somme_durees)
+{
+    if (total == 0) {
+        fprintf(sortie, "Statistiques : aucun processus.\n");
+        return;
+    }
+
+    fprintf(sortie,
+            "Statistiques : total=%zu | termines=%zu | echecs=%zu | "
+            "duree min=%d | max=%d | moyenne=%.2f\n",
+            total, termines, total - termines, duree_min, duree_max,
+            (double)somme_durees / total);
+}
+
 static void ecrire_entete_historique(FILE *historique, const machine *machine_lue)
 {
     time_t maintenant = time(NULL);
@@ -154,7 +169,11 @@ void execute(void)
         size_t nombre_processus = 0;
         size_t capacite = 0;
         size_t index;
+        size_t nombre_termines = 0;
         int temps_courant = 0;
+        int duree_min = 0;
+        int duree_max = 0;
+        int somme_durees = 0;
 
         if (!lire_machine_ligne(ligne, &machine_lue)) {
             continue;
@@ -212,6 +231,14 @@ void execute(void)
             Execution execution = {liste_processus[index].id, machine_lue.id,
                                    -1, -1, FAILED};
 
+            if (index == 0 || liste_processus[index].duration < duree_min) {
+                duree_min = liste_processus[index].duration;
+            }
+            if (liste_processus[index].duration > duree_max) {
+                duree_max = liste_processus[index].duration;
+            }
+            somme_durees += liste_processus[index].duration;
+
             if (machine_lue.status == AVAILABLE &&
                 liste_processus[index].required_ram <= machine_lue.Ram) {
                 if (temps_courant < liste_processus[index].arrival_time) {
@@ -222,6 +249,7 @@ void execute(void)
                 execution.end_time = temps_courant + liste_processus[index].duration;
                 execution.status = COMPLETED;
                 temps_courant = execution.end_time;
+                ++nombre_termines;
             }
 
             afficher_resultat_processus(stdout, &liste_processus[index], &execution);
@@ -232,8 +260,12 @@ void execute(void)
         }
 
         printf("+----+--------------------+---------+-------+-----------+------------+------------+\n");
+        afficher_statistiques(stdout, nombre_processus, nombre_termines,
+                              duree_min, duree_max, somme_durees);
         if (historique != NULL) {
             fprintf(historique, "+----+--------------------+---------+-------+-----------+------------+------------+\n");
+            afficher_statistiques(historique, nombre_processus, nombre_termines,
+                                  duree_min, duree_max, somme_durees);
             fclose(historique);
         }
         free(liste_processus);

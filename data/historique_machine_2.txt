@@ -18,3 +18,14 @@ Machine 2 - Machine_B (INDISPONIBLE, RAM 8.00 Go)
 | 2  | VSCode             | 2       | 10    | -         | -          | ECHEC      |
 | 8  | Compiler           | 6       | 15    | -         | -          | ECHEC      |
 +----+--------------------+---------+-------+-----------+------------+------------+
+
+===== EXECUTION DU 2026-11-16 14:44:30 =====
+Machine 2 - Machine_B (INDISPONIBLE, RAM 8.00 Go)
++----+--------------------+---------+-------+-----------+------------+------------+
+| ID | Processus          | Arrivee | Duree | Debut     | Fin        | Etat       |
++----+--------------------+---------+-------+-----------+------------+------------+
+| 5  | Antivirus          | 0       | 8     | -         | -          | ECHEC      |
+| 2  | VSCode             | 2       | 10    | -         | -          | ECHEC      |
+| 8  | Compiler           | 6       | 15    | -         | -          | ECHEC      |
++----+--------------------+---------+-------+-----------+------------+------------+
+Statistiques : total=3 | termines=0 | echecs=3 | duree min=8 | max=15 | moyenne=11.00
